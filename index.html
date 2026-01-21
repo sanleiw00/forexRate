@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Forex Rates Table</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+        }
+
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .loading {
+            text-align: center;
+            color: #667eea;
+            font-size: 1.2em;
+            padding: 20px;
+        }
+
+        .error {
+            text-align: center;
+            color: #e74c3c;
+            padding: 20px;
+            background: #fadbd8;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+
+        .info-box {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            border-left: 4px solid #667eea;
+        }
+
+        .info-box p {
+            margin: 5px 0;
+            color: #555;
+        }
+
+        .table-wrapper {
+            overflow-x: auto;
+            margin-top: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        thead {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        th {
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 1.1em;
+        }
+
+        td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        tbody tr:hover {
+            background-color: #f5f5f5;
+            transition: background-color 0.3s ease;
+        }
+
+        tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        .red-border {
+            border: 3px solid #e74c3c !important;
+            background-color: #fadbd8 !important;
+            font-weight: bold;
+        }
+
+        .currency-code {
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .value-original {
+            color: #27ae60;
+        }
+
+        .value-modified {
+            color: #8e44ad;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+            }
+
+            h1 {
+                font-size: 1.8em;
+            }
+
+            table {
+                font-size: 0.9em;
+            }
+
+            th, td {
+                padding: 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Forex Rates Table</h1>
+        
+        <div id="info" class="info-box" style="display: none;">
+            <p><strong>Base Currency:</strong> <span id="baseCurrency"></span></p>
+            <p><strong>Last Updated:</strong> <span id="lastUpdated"></span></p>
+        </div>
+
+        <div id="loading" class="loading">Loading forex rates...</div>
+        <div id="error" class="error" style="display: none;"></div>
+        
+        <div class="table-wrapper">
+            <table id="ratesTable" style="display: none;">
+                <thead>
+                    <tr>
+                        <th>Currency Code</th>
+                        <th>Original Rate</th>
+                        <th>Modified Rate (+10.0002)</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody">
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        // Function to check if the value is an even number
+        function isEvenNumber(value) {
+            return typeof value === 'number' && value % 2 === 0;
+        }
+
+        // Variables to store the data
+        let originalData = {};
+        let modifiedData = {};
+
+        // API configuration - using backend proxy for security
+        const API_URL = '/api/rates';
+
+        // Function to fetch forex rates
+        async function fetchForexRates() {
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'GET'
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                
+                // Store original data
+                originalData = data.rates;
+
+                // Create modified data by adding 10.0002 to each rate
+                modifiedData = {};
+                for (const [currency, rate] of Object.entries(originalData)) {
+                    modifiedData[currency] = rate + 10.0002;
+                }
+
+                // Display the data
+                displayData(data);
+                
+            } catch (error) {
+                console.error('Error fetching data:', error);
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('error').style.display = 'block';
+                document.getElementById('error').textContent = `Error: ${error.message}. Please check the API key or try again later.`;
+            }
+        }
+
+        // Function to display data in table
+        function displayData(apiResponse) {
+            const tableBody = document.getElementById('tableBody');
+            const loading = document.getElementById('loading');
+            const table = document.getElementById('ratesTable');
+            const infoBox = document.getElementById('info');
+
+            // Hide loading and show table
+            loading.style.display = 'none';
+            table.style.display = 'table';
+            infoBox.style.display = 'block';
+
+            // Display API info
+            document.getElementById('baseCurrency').textContent = apiResponse.base || 'EUR';
+            document.getElementById('lastUpdated').textContent = new Date(apiResponse.timestamp * 1000).toLocaleString();
+
+            // Clear existing table rows
+            tableBody.innerHTML = '';
+
+            // Iterate through currencies and create table rows
+            for (const [currency, originalRate] of Object.entries(originalData)) {
+                const modifiedRate = modifiedData[currency];
+                const row = document.createElement('tr');
+
+                // Create cells
+                const currencyCell = document.createElement('td');
+                currencyCell.className = 'currency-code';
+                currencyCell.textContent = currency;
+
+                const originalCell = document.createElement('td');
+                originalCell.className = 'value-original';
+                originalCell.textContent = originalRate.toFixed(6);
+
+                const modifiedCell = document.createElement('td');
+                modifiedCell.className = 'value-modified';
+                modifiedCell.textContent = modifiedRate.toFixed(6);
+
+                // Apply red border if value is even number OR currency is HKD
+                if (isEvenNumber(Math.floor(originalRate)) || currency === 'HKD') {
+                    originalCell.classList.add('red-border');
+                }
+
+                if (isEvenNumber(Math.floor(modifiedRate)) || currency === 'HKD') {
+                    modifiedCell.classList.add('red-border');
+                }
+
+                // Append cells to row
+                row.appendChild(currencyCell);
+                row.appendChild(originalCell);
+                row.appendChild(modifiedCell);
+
+                // Append row to table body
+                tableBody.appendChild(row);
+            }
+        }
+
+        // Fetch data when page loads
+        window.addEventListener('DOMContentLoaded', fetchForexRates);
+    </script>
+</body>
+</html>
